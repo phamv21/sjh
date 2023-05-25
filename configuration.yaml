@@ -1,0 +1,144 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+#DuckDns
+template:
+   - sensor:
+     - name: "Real Current WashingMachine"
+       unit_of_measurement: "mA"
+       device_class: current
+       state: >
+         {{ [ states('sensor.socket_with_monitor_current')]
+                | map('float') | sum/1000 }}
+       availability: >
+           {{ not 'unavailable' in [ states('sensor.socket_with_monitor_current')] }}
+     - name: "Real power WashingMachine"
+       unit_of_measurement: "W"
+       device_class: power
+       state: >
+         {{ float(states('sensor.socket_with_monitor_current'))/1000000 * float(states('sensor.socket_with_monitor_voltage'))/1000 }}
+       availability: >
+         {{ not 'unavailable' in [ states('sensor.socket_with_monitor_current')] }}
+     - name: 'Correction Power WashingMachine'
+       unit_of_measurement: "W"
+       device_class: power
+       unique_id: "correction-socket-power-wsm"
+       state: >
+         {{ float(states('sensor.socket_with_monitor_current_power'))/1000 }}
+       availability: >
+         {{ not 'unavailable' in [states('sensor.socket_with_monitor_current_power')] }}
+     - name: "Real Total Consumtion WashingMachine"
+       state_class: total_increasing
+       unit_of_measurement: kWh
+       device_class: energy
+       state: >
+         {{ float(states('sensor.socket_with_monitor_total_consumption'))/1000}}
+       availability: >
+         {{ not 'unavailable' in [ states('sensor.socket_with_monitor_total_consumption')] }}
+     - name: "Relative Fav Airfilter speed"
+       device_class: speed
+       unit_of_measurement: rpm
+       state: >-
+         {% set num_x = states('sensor.air_purifier_pm2_5') | float  %}
+         {{ ((1 + int(num_x/15))**2)*40 + 360 }}
+       availability: >
+         {{ not 'unavailable' in [ states('sensor.air_purifier_pm2_5')] }}
+     - name: "HIC main"
+       device_class: temperature
+       unit_of_measurement: "°C"
+       unique_id: "heat-index-main"
+       state: >-
+         {% set T = float(states('sensor.mi_temp_1'))*9/5 + 32  %}
+         {% set R = float(states('sensor.mi_humi_1'))  %}
+         {% set con = {
+           "c1": -42.379,
+           "c2": 2.04901523,
+           "c3": 10.14333127,
+           "c4": -0.22475541,
+           "c5": -0.00683783,
+           "c6": -0.05481717,
+           "c7": 0.00122874,
+           "c8": 0.00085282,
+           "c9": -0.00000199
+           }  %}
+           {% set HIF = (con.c1 + con.c2*T + con.c3*R + con.c4*T*R + con.c5*(T**2) + con.c6*(R**2) + con.c7*(T**2)*R + con.c8*T*(R**2) + con.c9*(T**2)*(R**2)) %}
+           {{ (HIF-32)*5/9}}
+     - name: "HIC mina"
+       device_class: temperature
+       unit_of_measurement: "°C"
+       unique_id: "heat-index-mina"
+       state: >-
+         {% set T = float(states('sensor.mina_room_remote_temperature'))*9/5 + 32  %}
+         {% set R = float(states('sensor.mina_room_remote_humidity'))  %}
+         {% set con = {
+           "c1": -42.379,
+           "c2": 2.04901523,
+           "c3": 10.14333127,
+           "c4": -0.22475541,
+           "c5": -0.00683783,
+           "c6": -0.05481717,
+           "c7": 0.00122874,
+           "c8": 0.00085282,
+           "c9": -0.00000199
+           }  %}
+           {% set HIF = (con.c1 + con.c2*T + con.c3*R + con.c4*T*R + con.c5*(T**2) + con.c6*(R**2) + con.c7*(T**2)*R + con.c8*T*(R**2) + con.c9*(T**2)*(R**2)) %}
+           {{ (HIF-32)*5/9}}
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+  - 10.0.1.0/24
+  - 10.0.1.24
+  - 10.0.1.1
+  - ::1
+bluetooth:
+  mac: 'A4:C1:38:46:2D:51'
+mqtt:
+  sensor:
+    - name: "Mi Temp 1"
+      unique_id: 'mqtt-mi-temp-1'
+      state_topic: "stvp13593/mijasensor_gen2/bathroom"
+      unit_of_measurement: "°C"
+      state_class: measurement
+      device_class: temperature
+      value_template: "{{ float(value_json.temperature)  }}"
+    - name: "Mi Humi 1"
+      unique_id: 'mqtt-mi-humi-1'
+      state_topic: "stvp13593/mijasensor_gen2/bathroom"
+      unit_of_measurement: "%"
+      state_class: measurement
+      device_class: temperature
+      value_template: "{{ float(value_json.humidity) }}"
+    - name: "Mi Bat 1"
+      state_topic: "stvp13593/mijasensor_gen2/bathroom"
+      unit_of_measurement: "%"
+      value_template: "{{ float(value_json.battery) }}"
+    - name: "Mi Temp 2"
+      unique_id: 'mqtt-mi-temp-2'
+      state_topic: "stvp13593/mijasensor_gen2/kitchen"
+      unit_of_measurement: "°C"
+      state_class: measurement
+      device_class: temperature
+      value_template: "{{ float(value_json.temperature)  }}"
+    - name: "Mi Humi 2"
+      unique_id: 'mqtt-mi-humi-2'
+      state_topic: "stvp13593/mijasensor_gen2/kitchen"
+      unit_of_measurement: "%"
+      state_class: measurement
+      device_class: temperature
+      value_template: "{{ float(value_json.humidity) }}"
+    - name: "Mi Bat 2"
+      state_topic: "stvp13593/mijasensor_gen2/kitchen"
+      unit_of_measurement: "%"
+      value_template: "{{ float(value_json.battery) }}"
